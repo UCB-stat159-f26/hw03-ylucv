@@ -11,7 +11,8 @@ from tennis_career._parse import _clean_matches, _read_array
 
 
 def test_clean_both_formats(career_rows):
-    data = _clean_matches(career_rows, "19810926")
+    born = "19810926" if len(career_rows[0][16]) == 8 else "19860603"
+    data = _clean_matches(career_rows, born)
     first_date = pd.Timestamp(career_rows[0][0])
     raw_age = career_rows[0][16]
     expected = ((first_date - pd.Timestamp(raw_age)).days / 365.2425
@@ -19,7 +20,7 @@ def test_clean_both_formats(career_rows):
     first = data.loc[data["opponent"] == career_rows[0][11]].iloc[0]
     assert first["age_opponent"] == pytest.approx(expected)
     assert first["age_player"] == pytest.approx(
-        (first_date - pd.Timestamp("1981-09-26")).days / 365.2425)
+        (first_date - pd.Timestamp(born)).days / 365.2425)
     assert first["age_diff"] == pytest.approx(first["age_player"] - expected)
     assert len(data) == 3
     assert data["date_match"].is_monotonic_increasing
@@ -39,6 +40,14 @@ def test_deduplication_and_walkovers(career_rows):
     data = _clean_matches(career_rows + career_rows, "19810926")
     assert len(data) == 3
     assert data["is_walkover"].sum() == 1
+
+
+def test_updated_profile_record_preferred(career_rows):
+    updated = career_rows[0].copy()
+    updated[9] = "6-0 6-0"
+    data = _clean_matches(career_rows + [updated], "19810926")
+    assert len(data) == 3
+    assert data.loc[data["opponent"] == updated[11], "score"].item() == "6-0 6-0"
 
 
 @pytest.mark.parametrize("field,value", [(0, "bad"), (0, "19000101"), (4, "X")])
